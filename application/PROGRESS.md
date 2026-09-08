@@ -4,13 +4,15 @@ Status: IDLE
 Updated: 2026-09-09
 
 ## Last completed
-Prepared the public source snapshot, owner documentation, contribution and security
-guidance, and automated packaging, launcher and chat checks.
+Expanded the owner README with computer-specific preparation, startup expectations,
+first admin setup, authenticator/recovery instructions, API and CLI connections,
+dashboard preferences, first-request review, shutdown, returning later and troubleshooting.
 
 ## Verification
-Local source checks and the GitHub source-check workflow passed. Private website,
-runtime storage, credentials and backups are excluded from tracked source and
-public packages. Shared Codex and Claude skill links are intact.
+Instructions were checked against launcher code and actual UI labels. Official
+Python, WSL and Docker references are linked. Documentation links, section anchors
+and code fences were checked; public packaging passed. No runtime behavior or
+private data changed. Native fresh-machine installation was not re-tested.
 
 ## Next action
-Nothing in progress. Start with README.md to create an independent app.
+Nothing in progress. The owner guide is ready for use.
