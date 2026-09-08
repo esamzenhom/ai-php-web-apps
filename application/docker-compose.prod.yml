@@ -1,0 +1,36 @@
+# ─────────────────────────────────────────────────────────────
+#  PRODUCTION overlay — MANY apps per server, behind a shared edge proxy.
+#
+#  The shared edge (edge/docker-compose.yml, started ONCE per server with
+#  `make edge-up`) owns ports 80/443, terminates TLS for every domain, and
+#  routes each domain to the right app. So here an app's own web server:
+#    • does NOT publish host ports (no 80/443 clash between apps),
+#    • joins the shared `web` network so the edge can reach it,
+#    • declares its domain via labels for the edge to pick up automatically.
+#
+#      make edge-up     # once per server  → starts the shared auto-SSL proxy
+#      make prod-up     # per app          → set DOMAIN in .env first
+# ─────────────────────────────────────────────────────────────
+services:
+  caddy:
+    # Drop the local host-port mapping; traffic now arrives via the edge.
+    ports: !reset null
+    networks:
+      - adminnet
+      - web
+    # The edge proxy reads these labels and configures itself:
+    #   - reverse-proxies to this app's web server (its port 80)
+    #   - SSL is automatic UNLESS CADDY_SCHEME is "http://" (SSL=off), which
+    #     makes the edge serve plain HTTP only — no Let's Encrypt. `make prod-up`
+    #     sets CADDY_SCHEME from the SSL value in .env.
+    labels:
+      caddy: "${CADDY_SCHEME-}${DOMAIN}"
+      caddy.reverse_proxy: "{{upstreams 80}}"
+
+  php:
+    environment:
+      APP_ENV: production
+
+networks:
+  web:
+    external: true

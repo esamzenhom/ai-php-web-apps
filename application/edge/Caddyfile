@@ -1,0 +1,7 @@
+# Base config for the shared edge proxy. Per-app routing is generated
+# automatically from Docker labels — this file only holds global options.
+{
+	# Contact address for Let's Encrypt (renewal notices). Optional but
+	# recommended. Set LETSENCRYPT_EMAIL in edge/.env.
+	email {$LETSENCRYPT_EMAIL}
+}

@@ -1,0 +1,19 @@
+/* The initial welcome screen uses a minimal monochrome theme. */
+:root {
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #09090b;
+  background: #fff;
+  font-synthesis: none;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-size: 14px; line-height: 1.5; }
+.welcome { min-height: 100svh; display: grid; place-items: center; padding: 24px; }
+.welcome-card { width: 100%; max-width: 440px; border: 1px solid #e4e4e7; border-radius: 12px; padding: 32px; }
+.brand { margin: 0 0 28px; font-size: 14px; font-weight: 600; }
+h1 { margin: 0 0 12px; font-size: 26px; line-height: 1.2; font-weight: 600; letter-spacing: -.035em; }
+.description { margin: 0 0 24px; color: #71717a; line-height: 1.65; }
+.button { display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 16px; border: 1px solid #18181b; border-radius: 6px; background: #18181b; color: #fafafa; text-decoration: none; font-weight: 500; }
+.button:hover { background: #27272a; }
+.button:focus-visible { outline: 2px solid #18181b; outline-offset: 4px; }
+.hint { margin: 16px 0 0; text-align: center; color: #71717a; font-size: 12px; }
+@media (max-width: 480px) { .welcome { padding: 20px; } .welcome-card { padding: 24px; } h1 { font-size: 24px; } }

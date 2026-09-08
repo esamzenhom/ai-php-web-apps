@@ -1,0 +1,11 @@
+{
+ auto_https off
+ admin off
+}
+:80 {
+ root * /var/www/html/website/public
+ @private path /.* /*/.*
+ respond @private 404
+ php_fastcgi site:9000
+ file_server
+}

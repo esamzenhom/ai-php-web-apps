@@ -1,0 +1,34 @@
+# ─────────────────────────────────────────────────────────────
+#  The app's own web server (plain HTTP on :80).
+#    • Locally: reached directly at http://localhost:8080 (HTTP_PORT).
+#    • In production: sits behind the shared edge proxy, which adds TLS.
+#  TLS is never handled here — the edge does it (see edge/).
+# ─────────────────────────────────────────────────────────────
+{
+	auto_https off      # TLS is handled locally=none / prod=edge proxy
+	admin off
+}
+
+:80 {
+	root * /var/www/html/admin/public
+	encode gzip
+
+	# Route everything through the PHP front controller.
+	php_fastcgi php:9000
+	file_server
+
+	# Baseline security headers. HSTS is ignored by browsers over plain
+	# HTTP, so it's harmless locally and active in production (the edge
+	# serves the client over HTTPS and forwards this header).
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# Block hidden files (.env, .git, …).
+	@dotfiles path /.* /*/.*
+	respond @dotfiles 403
+}

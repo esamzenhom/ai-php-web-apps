@@ -1,0 +1,40 @@
+# ─────────────────────────────────────────────────────────────
+#  SHARED EDGE PROXY — run ONCE per server (make edge-up).
+#
+#  A single Caddy that:
+#    • owns ports 80 + 443,
+#    • watches Docker for apps that carry `caddy` labels (see
+#      docker-compose.prod.yml) and auto-configures itself,
+#    • issues and AUTO-RENEWS a Let's Encrypt certificate for every
+#      app's domain,
+#    • routes each domain to the right app container.
+#
+#  Add a new app later → it self-registers → no edits here.
+#  Uses lucaslorentz/caddy-docker-proxy (Caddy + Docker label routing).
+# ─────────────────────────────────────────────────────────────
+services:
+  edge:
+    image: lucaslorentz/caddy-docker-proxy:2.9-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # Which Docker network to reach app containers on.
+      CADDY_INGRESS_NETWORKS: web
+      # Base config (global options like the ACME email).
+      CADDY_DOCKER_CADDYFILE_PATH: /etc/caddy/Caddyfile
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Persists certificates so renewals survive restarts. Keep this
+      # local directory private and preserve it across restarts.
+      - ../data/edge/data:/data
+      - ../data/edge/config:/config
+    networks:
+      - web
+
+networks:
+  web:
+    external: true

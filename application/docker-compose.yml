@@ -1,0 +1,178 @@
+services:
+  prepare:
+    profiles: [maintenance]
+    build: {context: ., dockerfile: docker/php/Dockerfile}
+    user: "0:0"
+    network_mode: none
+    command: ["php", "bin/prepare.php"]
+    environment:
+      APP_UID: ${APP_UID:-1000}
+      APP_GID: ${APP_GID:-1000}
+    volumes:
+      - ./admin/app:/var/www/html/admin/app:ro
+      - ./bin:/var/www/html/bin:ro
+      - ./data/control:/var/www/html/data/control
+      - ./data/recovery:/var/www/html/data/recovery
+      - ./data/audit:/var/www/html/data/audit
+      - ./data/sessions:/var/www/html/data/sessions
+      - ./data/site:/var/www/html/data/site
+      - ./backups:/var/www/html/backups
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["${HTTP_BIND:-127.0.0.1}:${HTTP_PORT:-8080}:80"]
+    volumes:
+      - ./docker/caddy/Caddyfile.local:/etc/caddy/Caddyfile:ro
+      - ./admin/public:/var/www/html/admin/public:ro
+      - ./data/caddy/data:/data
+      - ./data/caddy/config:/config
+    depends_on: [php]
+    networks: [adminnet]
+  php:
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    build: {context: ., dockerfile: docker/php/Dockerfile}
+    restart: unless-stopped
+    environment: &environment
+      CLI_SERVICE_TOKEN: ${CLI_SERVICE_TOKEN:?Run ./bin/start.sh first}
+      APP_ID: ${COMPOSE_PROJECT_NAME}
+      APP_UID: ${APP_UID:-1000}
+      APP_GID: ${APP_GID:-1000}
+      APP_ENV: ${APP_ENV:-local}
+      APP_NAME: ${APP_NAME:-My App}
+      DB_HOST: postgres
+      DB_NAME: ${POSTGRES_DB:-app}
+      DB_USER: app_runtime
+      DB_PASSWORD: ${SITE_DB_PASSWORD:?Run ./bin/start.sh first}
+    volumes:
+      - ./admin/app:/var/www/html/admin/app:ro
+      - ./admin/migrations:/var/www/html/admin/migrations:ro
+      - ./admin/public:/var/www/html/admin/public:ro
+      - ./bin:/var/www/html/bin:ro
+      - ./data/recovery:/var/www/html/data/recovery:ro
+      - ./data/control:/var/www/html/data/control
+      - ./data/sessions:/var/www/html/data/sessions
+      - ./website:/var/www/html/website:ro
+    depends_on: [gateway]
+    networks: [adminnet, proxynet, clinet]
+  worker:
+    build: {context: ., dockerfile: docker/php/Dockerfile}
+    restart: unless-stopped
+    command: ["php", "bin/worker.php"]
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    environment:
+      <<: *environment
+      DB_USER: app_migrator
+      DB_PASSWORD: ${MIGRATION_DB_PASSWORD:?Run the Start launcher}
+      AUDIT_SERVICE_TOKEN: ${AUDIT_SERVICE_TOKEN:?Run the Start launcher}
+    volumes:
+      - ./admin/app:/var/www/html/admin/app:ro
+      - ./admin/migrations:/var/www/html/admin/migrations:ro
+      - ./bin:/var/www/html/bin:ro
+      - ./website:/var/www/html/website
+      - ./data/recovery:/var/www/html/data/recovery:ro
+      - ./data/control:/var/www/html/data/control
+      - ./backups:/var/www/html/backups
+      - ./data/site:/var/www/html/site-data
+      - ./docs/ASSISTANT-GUIDE.md:/var/www/html/guidance/AGENTS.md:ro
+      - ./docs/PRODUCT-CONTRACT.md:/var/www/html/guidance/PRODUCT-CONTRACT.md:ro
+      - ../.agents/skills:/var/www/html/guidance/skills:ro
+    depends_on:
+      postgres: {condition: service_healthy}
+    networks: [datanet, clinet, auditnet]
+  cli:
+    build: {context: ., dockerfile: docker/cli/Dockerfile}
+    restart: unless-stopped
+    init: true
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    environment:
+      APP_UID: ${APP_UID:-1000}
+      APP_GID: ${APP_GID:-1000}
+      CLI_SERVICE_TOKEN: ${CLI_SERVICE_TOKEN:?Run ./bin/start.sh first}
+    volumes:
+      - ./data/cli:/state
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import os,urllib.request; urllib.request.urlopen(urllib.request.Request('http://localhost:8090/',data=b'{\"action\":\"status\"}',headers={'Authorization':'Bearer '+os.environ['CLI_SERVICE_TOKEN']}),timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 12
+      start_period: 30s
+    networks: [clinet]
+  audit:
+    build: {context: ., dockerfile: docker/audit/Dockerfile}
+    restart: unless-stopped
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    mem_limit: 1g
+    cpus: 1.0
+    pids_limit: 128
+    environment:
+      AUDIT_SERVICE_TOKEN: ${AUDIT_SERVICE_TOKEN:?Run the Start launcher}
+    volumes:
+      - ./data/audit:/tmp
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import os,urllib.request; urllib.request.urlopen(urllib.request.Request('http://localhost:8091/',data=b'{\"action\":\"health\"}',headers={'Authorization':'Bearer '+os.environ['AUDIT_SERVICE_TOKEN']}),timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 12
+    networks: [auditnet]
+  site:
+    build: {context: ., dockerfile: docker/php/Dockerfile}
+    restart: unless-stopped
+    command: ["php-fpm", "-F", "-d", "session.save_path=/var/www/html/site-data/sessions", "-d", "upload_tmp_dir=/var/www/html/site-data/tmp", "-d", "disable_functions=exec,passthru,shell_exec,system,proc_open,popen,pcntl_exec,dl"]
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    environment:
+      APP_NAME: ${APP_NAME:-My App}
+      DB_HOST: postgres
+      DB_NAME: ${POSTGRES_DB:-app}
+      DB_USER: app_runtime
+      DB_PASSWORD: ${SITE_DB_PASSWORD:?Run ./bin/start.sh first}
+    volumes:
+      - ./website:/var/www/html/website:ro
+      - ./data/site:/var/www/html/site-data
+    depends_on:
+      postgres: {condition: service_healthy}
+    networks: [sitenet, datanet]
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SITE_DB_PASSWORD: ${SITE_DB_PASSWORD:?Run ./bin/start.sh first}
+      MIGRATION_DB_PASSWORD: ${MIGRATION_DB_PASSWORD:?Run the Start launcher}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./bin/init-site-db.sh:/docker-entrypoint-initdb.d/10-site.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    networks: [datanet]
+  gateway:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    volumes:
+      - ./docker/caddy/Caddyfile.site:/etc/caddy/Caddyfile:ro
+      - ./website/public:/var/www/html/website/public:ro
+      - ./data/gateway/data:/data
+      - ./data/gateway/config:/config
+    depends_on: [site]
+    networks: [proxynet, sitenet]
+networks:
+  adminnet:
+  proxynet:
+  sitenet:
+  datanet:
+  clinet:
+  auditnet:
+    internal: true

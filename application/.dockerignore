@@ -1,0 +1,7 @@
+*
+!docker/
+!docker/php/
+!docker/php/Dockerfile
+
+!docker/audit/
+!docker/audit/**

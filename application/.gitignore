@@ -1,0 +1,18 @@
+.env
+.env.*
+!.env.example
+/data/
+/backups/
+/vendor/
+*.log
+*.bak
+/ACTIVITY-LOG.md
+.DS_Store
+
+# Owner-created source stays private; templates/website is the public starter.
+/website/
+# Legacy generated websites are private too.
+/site/
+
+# Generated public download packages.
+/releases/

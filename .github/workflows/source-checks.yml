@@ -1,0 +1,25 @@
+name: Public source checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python3 application/tests/packaging.py
+      - run: python3 application/tests/start-stop.py
+      - run: node application/tests/home-chat.cjs
+      - run: git diff --check

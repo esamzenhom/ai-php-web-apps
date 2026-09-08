@@ -1,0 +1,26 @@
+# The app lives in application/ (which has its own .gitignore for .env, backups, etc.).
+# This root file just ignores OS/editor noise.
+.DS_Store
+.idea/
+.vscode/
+
+# Claude personal permissions and local overrides stay on this machine.
+.claude/settings.local.json
+.claude/worktrees/
+CLAUDE.local.md
+
+/dist/
+__pycache__/
+
+# Dependencies, bytecode and editor temporary files.
+node_modules/
+*.py[cod]
+*.swp
+*.swo
+*~
+Thumbs.db
+
+# Private environment files anywhere; retain safe examples.
+.env
+.env.*
+!.env.example
